@@ -36,6 +36,7 @@ export type ScreeningQuestion = {
   id: string;
   question: string;
   reason: string;
+  options: string[];
 };
 
 export type ScreeningAnswer = {

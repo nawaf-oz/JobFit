@@ -3,19 +3,53 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #0a0a0a;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --bg-from: #f5f3ff;
+  --bg-via: #eef2ff;
+  --bg-to: #fdf4ff;
+  --fg: #1e1b3a;
+  --card: #ffffff;
+  --card-border: #e5e7eb;
+  --accent: #6d28d9;
+  --accent-2: #db2777;
 }
 
 html, body {
-  background: var(--background);
-  color: var(--foreground);
+  color: var(--fg);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background:
+    radial-gradient(60% 50% at 10% 0%, rgba(139, 92, 246, 0.18), transparent 70%),
+    radial-gradient(50% 60% at 90% 10%, rgba(236, 72, 153, 0.16), transparent 70%),
+    linear-gradient(180deg, var(--bg-from), var(--bg-via) 40%, var(--bg-to));
+  min-height: 100vh;
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl bg-white/85 backdrop-blur border border-violet-100 shadow-sm;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold text-white
+           bg-gradient-to-r from-violet-600 to-fuchsia-600 shadow-md
+           hover:from-violet-500 hover:to-fuchsia-500 hover:shadow-lg
+           active:scale-[0.98] transition-all
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-md;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium
+           bg-white border border-violet-200 text-violet-700
+           hover:bg-violet-50 hover:border-violet-300 hover:text-violet-800
+           active:scale-[0.98] transition-all;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-lg px-3 py-2 text-xs font-medium
+           text-violet-700 hover:bg-violet-100 transition-colors;
+  }
+  .field {
+    @apply w-full rounded-xl border border-violet-200 bg-white px-3.5 py-2.5 text-sm
+           outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-200/60
+           transition-all placeholder:text-slate-400;
+  }
+  .chip {
+    @apply rounded-lg border px-3 py-2 text-xs font-medium transition-all;
+  }
 }

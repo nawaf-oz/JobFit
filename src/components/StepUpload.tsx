@@ -26,6 +26,7 @@ export default function StepUpload({
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [drag, setDrag] = useState(false);
 
   const submit = async () => {
     setError("");
@@ -35,7 +36,7 @@ export default function StepUpload({
 
     setBusy(true);
     try {
-      setStatus("Reading CV...");
+      setStatus("Reading your CV...");
       const text = await extractText(file);
       if (!text || text.length < 30) throw new Error("Could not read text from this file.");
 
@@ -53,52 +54,96 @@ export default function StepUpload({
     }
   };
 
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDrag(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f) setFile(f);
+  };
+
   return (
-    <section className="space-y-5">
+    <section className="space-y-6">
       <div>
-        <label className="block text-sm font-medium mb-2">Your CV (PDF, DOCX, TXT)</label>
-        <input
-          type="file"
-          accept=".pdf,.docx,.txt,.md"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          className="block w-full text-sm"
-        />
+        <label className="block text-sm font-semibold text-slate-800 mb-2">Your CV</label>
+        <label
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDrag(true);
+          }}
+          onDragLeave={() => setDrag(false)}
+          onDrop={onDrop}
+          className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-8 cursor-pointer transition-all ${
+            drag
+              ? "border-violet-500 bg-violet-50"
+              : file
+              ? "border-emerald-400 bg-emerald-50/40"
+              : "border-violet-200 bg-violet-50/30 hover:border-violet-400 hover:bg-violet-50/60"
+          }`}
+        >
+          <input
+            type="file"
+            accept=".pdf,.docx,.txt,.md"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            className="hidden"
+          />
+          <div className="text-3xl">{file ? "📄" : "⬆️"}</div>
+          {file ? (
+            <>
+              <div className="text-sm font-semibold text-emerald-700">{file.name}</div>
+              <div className="text-xs text-slate-500">Click or drop to replace</div>
+            </>
+          ) : (
+            <>
+              <div className="text-sm font-medium text-slate-700">
+                Drop your CV here or click to browse
+              </div>
+              <div className="text-xs text-slate-500">PDF, DOCX, TXT, or MD</div>
+            </>
+          )}
+        </label>
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2">Job description</label>
+        <label className="block text-sm font-semibold text-slate-800 mb-2">Job description</label>
         <textarea
           rows={8}
           value={jobDescription}
           onChange={(e) => setJobDescription(e.target.value)}
           placeholder="Paste the full job posting here..."
-          className="w-full rounded border border-black/15 dark:border-white/20 bg-transparent px-3 py-2 text-sm"
+          className="field"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2">
-          Extra skills not in your CV <span className="opacity-60 font-normal">(optional)</span>
+        <label className="block text-sm font-semibold text-slate-800 mb-2">
+          Extra skills <span className="font-normal text-slate-500">(optional — anything not yet on your CV)</span>
         </label>
         <textarea
           rows={3}
           value={extraSkills}
           onChange={(e) => setExtraSkills(e.target.value)}
-          placeholder="e.g. fluent Spanish, AWS Lambda, side project shipping ..."
-          className="w-full rounded border border-black/15 dark:border-white/20 bg-transparent px-3 py-2 text-sm"
+          placeholder="e.g. fluent Spanish, AWS Lambda, side project shipping..."
+          className="field"
         />
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {busy && <p className="text-sm opacity-70">{status}</p>}
+      {error && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {error}
+        </div>
+      )}
+      {busy && (
+        <div className="flex items-center gap-3 rounded-xl bg-violet-50 px-4 py-3 text-sm text-violet-700">
+          <span className="size-4 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" />
+          {status}
+        </div>
+      )}
 
-      <button
-        onClick={submit}
-        disabled={busy}
-        className="rounded bg-black text-white dark:bg-white dark:text-black px-4 py-2 text-sm font-medium disabled:opacity-50"
-      >
-        {busy ? "Working..." : "Continue"}
-      </button>
+      <div className="flex justify-end">
+        <button onClick={submit} disabled={busy} className="btn-primary">
+          {busy ? "Working..." : "Continue →"}
+        </button>
+      </div>
     </section>
   );
 }

@@ -54,7 +54,7 @@ The model is constrained to not invent employers, titles, dates, or degrees. It 
 
 - **Claude (Anthropic):** https://console.anthropic.com — default model `claude-sonnet-4-5-20250929`
 - **ChatGPT (OpenAI):** https://platform.openai.com/api-keys — default model `gpt-4o`
-- **Gemini (Google):** https://aistudio.google.com/apikey — default model `gemini-2.0-flash`
+- **Gemini (Google):** https://aistudio.google.com/apikey — default model `gemini-2.5-flash`
 
 Default models are set in [src/lib/ai.ts](src/lib/ai.ts) and can be edited.
 

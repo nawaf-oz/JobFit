@@ -3,6 +3,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpenAI from "openai";
+import { normalizeCV } from "./normalize";
 import type {
   CVData,
   Provider,
@@ -32,7 +33,7 @@ export const PROVIDER_CONSOLE: Record<Provider, string> = {
 const MODELS: Record<Provider, string> = {
   anthropic: "claude-sonnet-4-5-20250929",
   openai: "gpt-4o",
-  gemini: "gemini-2.0-flash",
+  gemini: "gemini-2.5-flash",
 };
 
 function extractJson<T>(text: string): T {
@@ -84,7 +85,6 @@ async function ask(
     return text;
   }
 
-  // gemini
   const model = new GoogleGenerativeAI(cfg.apiKey).getGenerativeModel({
     model: MODELS.gemini,
     systemInstruction: system,
@@ -97,8 +97,8 @@ async function ask(
 
 export async function parseCV(cfg: ProviderConfig, rawText: string): Promise<CVData> {
   const system =
-    "You extract structured data from CVs. Output strict JSON only, no prose, no markdown fences.";
-  const user = `Extract this CV into JSON matching this TypeScript type:
+    "You extract structured data from CVs. Output strict JSON only, no prose, no markdown fences. Every string field must be a plain string, never an object. Skills must be a flat array of plain strings (skill names only).";
+  const user = `Extract this CV into JSON matching this exact TypeScript type:
 
 type CVData = {
   name: string;
@@ -111,11 +111,16 @@ type CVData = {
   certifications?: string[];
 };
 
-Use empty strings or empty arrays when info is missing. Preserve original wording in bullets.
+Rules:
+- skills MUST be an array of plain strings, e.g. ["JavaScript", "React", "Node.js"]. Do NOT group, do NOT use objects.
+- bullets, details, certifications, links MUST also be plain string arrays.
+- Use empty strings or empty arrays when info is missing.
+- Preserve original wording in bullets.
 
 CV TEXT:
 ${rawText}`;
-  return extractJson<CVData>(await ask(cfg, system, user));
+  const parsed = extractJson<CVData>(await ask(cfg, system, user));
+  return normalizeCV(parsed);
 }
 
 export async function generateQuestions(
@@ -125,17 +130,32 @@ export async function generateQuestions(
   extraSkills: string,
 ): Promise<ScreeningQuestion[]> {
   const system =
-    "You are a recruiter screening a candidate. Output strict JSON only.";
-  const user = `Given the candidate's CV and the job description, generate 3 to 5 short screening questions that fill gaps between the CV and the role. Focus on requirements not clearly evidenced in the CV. Keep each question to one sentence.
+    "You are a recruiter screening a candidate for a specific job. Output strict JSON only.";
 
-Output JSON array of: { id: string, question: string, reason: string }
-"reason" briefly notes the gap or requirement being checked.
+  const projectNames = (cv.projects ?? []).map((p) => p.name).filter(Boolean);
+
+  const user = `Generate 4 to 7 short multiple-choice screening questions tailored to this candidate and role.
+
+Mix two kinds:
+1. GAP questions — fill gaps between the CV and the job description. Focus on requirements not clearly evidenced.
+2. PROJECT-FIT questions — for each of the candidate's projects, ask whether the project actually used a key technology, methodology, or domain mentioned in the job description. The answer determines whether we will rewrite that project's bullets to emphasize the JD's needs (yes), keep the project as-is (no), or partially adjust (somewhat). The question MUST start with the project name in brackets, e.g. "[Zimmam] Did this project use ...?".
+
+Each question:
+- One sentence, plain English.
+- 3 to 4 distinct, short answer options. Do NOT include an "Other" option (the UI adds it).
+- For PROJECT-FIT questions, options should be like: "Yes — heavily", "Yes — partially", "No — not used".
+
+Output JSON array of: { id: string, question: string, reason: string, options: string[] }
+Use ids like "q1", "q2", ... in order.
 
 JOB DESCRIPTION:
 ${jobDescription}
 
 EXTRA SKILLS THE CANDIDATE LISTED:
 ${extraSkills || "(none)"}
+
+CANDIDATE'S PROJECTS (ask one PROJECT-FIT question per project, max 4):
+${projectNames.length ? projectNames.join(", ") : "(none)"}
 
 CV (JSON):
 ${JSON.stringify(cv)}`;
@@ -157,13 +177,27 @@ export async function tailorCV(
     })
     .join("\n\n");
 
-  const system = `You rewrite CVs to match a target job, ATS-friendly. Rules:
-- Do not invent employment, titles, dates, or degrees. Only reuse facts from the source CV, listed extra skills, and Q&A answers.
-- You may rephrase bullets, reorder content, and emphasize relevant experience.
-- Use strong action verbs and quantify where the source allows.
-- Keep formatting plain (no symbols, emojis, tables, columns).
+  const system = `You rewrite CVs to match a target job. The output must be ATS-friendly and fit on a SINGLE A4 page when rendered at standard 11pt font.
+
+Hard rules:
+- Do not invent employment, titles, dates, degrees, or projects. Only reuse facts from the source CV, listed extra skills, and Q&A answers.
+- skills must be a flat array of plain strings (e.g. "JavaScript"), never objects, never grouped.
+- For each project, use the candidate's "[ProjectName] ..." Q&A answer:
+    * "Yes — heavily" or similar: rewrite bullets to emphasize the JD's tools and outcomes.
+    * "Yes — partially" / "Somewhat": adjust some bullets toward the JD without overclaiming.
+    * "No" / "Not used": KEEP the project's bullets as-is from the source CV. Do not invent JD tech for it.
+- Use strong action verbs and quantify only where the source allows.
+- Plain formatting only. No emojis, no symbols beyond standard punctuation, no tables, no columns.
 - Match keywords from the job description naturally where truthful.
-- Output strict JSON only matching the CVData type.`;
+
+One-page budget (approximate):
+- summary: 2-3 sentences max
+- top 1-2 most relevant roles: up to 4 bullets each; older/less relevant roles: 1-2 bullets or omit
+- top 2-3 projects only (drop the least relevant)
+- skills: a single flat list, no more than 15-20 items
+- prefer concise bullets (one line each)
+
+Output strict JSON only matching the CVData type.`;
 
   const user = `JOB DESCRIPTION:
 ${jobDescription}
@@ -177,9 +211,10 @@ ${qa || "(none)"}
 ORIGINAL CV (JSON):
 ${JSON.stringify(cv)}
 
-Return the tailored CV as JSON matching CVData.`;
+Return the tailored, one-page CV as JSON matching CVData.`;
 
-  return extractJson<CVData>(await ask(cfg, system, user));
+  const parsed = extractJson<CVData>(await ask(cfg, system, user));
+  return normalizeCV(parsed);
 }
 
 export async function generateCoverLetter(

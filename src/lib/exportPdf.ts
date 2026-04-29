@@ -3,6 +3,8 @@
 import { jsPDF } from "jspdf";
 import type { CVData, Template } from "./types";
 
+const LINE_HEIGHT = 1.25;
+
 type Ctx = {
   doc: jsPDF;
   y: number;
@@ -19,53 +21,95 @@ function newPageIfNeeded(ctx: Ctx, needed: number) {
 function writeText(
   ctx: Ctx,
   text: string,
-  opts: { size?: number; bold?: boolean; italic?: boolean; align?: "left" | "center"; gap?: number } = {},
+  opts: {
+    size?: number;
+    bold?: boolean;
+    italic?: boolean;
+    align?: "left" | "center";
+    color?: [number, number, number];
+    gap?: number;
+    indent?: number;
+  } = {},
 ) {
-  const { size = 11, bold, italic, align = "left", gap = 4 } = opts;
-  ctx.doc.setFont("helvetica", bold ? (italic ? "bolditalic" : "bold") : italic ? "italic" : "normal");
+  const { size = 10.5, bold, italic, align = "left", color, gap = 4, indent = 0 } = opts;
+  const style = bold ? (italic ? "bolditalic" : "bold") : italic ? "italic" : "normal";
+  ctx.doc.setFont("helvetica", style);
   ctx.doc.setFontSize(size);
-  const maxWidth = ctx.page.width - ctx.page.margin * 2;
+  if (color) ctx.doc.setTextColor(color[0], color[1], color[2]);
+  else ctx.doc.setTextColor(20, 20, 20);
+
+  const maxWidth = ctx.page.width - ctx.page.margin * 2 - indent;
   const lines = ctx.doc.splitTextToSize(text, maxWidth);
-  const lineHeight = size * 0.45;
-  newPageIfNeeded(ctx, lines.length * lineHeight);
-  const x = align === "center" ? ctx.page.width / 2 : ctx.page.margin;
-  ctx.doc.text(lines, x, ctx.y, { align });
-  ctx.y += lines.length * lineHeight + gap;
+  const lineH = size * LINE_HEIGHT;
+  newPageIfNeeded(ctx, lines.length * lineH + gap);
+
+  const baselineY = ctx.y + size;
+  const x = align === "center" ? ctx.page.width / 2 : ctx.page.margin + indent;
+  ctx.doc.text(lines, x, baselineY, { align, lineHeightFactor: LINE_HEIGHT });
+
+  ctx.y = baselineY + (lines.length - 1) * lineH + gap;
+}
+
+function rule(ctx: Ctx, color: [number, number, number] = [180, 180, 180]) {
+  ctx.doc.setDrawColor(color[0], color[1], color[2]);
+  ctx.doc.setLineWidth(0.6);
+  ctx.doc.line(ctx.page.margin, ctx.y, ctx.page.width - ctx.page.margin, ctx.y);
+  ctx.y += 6;
 }
 
 function sectionHeading(ctx: Ctx, text: string, template: Template) {
-  ctx.y += 4;
-  const size = template === "compact" ? 11 : 13;
-  writeText(ctx, template === "modern" ? text.toUpperCase() : text, {
-    size,
-    bold: true,
-    gap: 2,
-  });
-  if (template !== "compact") {
-    ctx.doc.setDrawColor(180);
-    ctx.doc.line(
-      ctx.page.margin,
-      ctx.y,
-      ctx.page.width - ctx.page.margin,
-      ctx.y,
-    );
-    ctx.y += 4;
+  ctx.y += 6;
+  if (template === "modern") {
+    writeText(ctx, text.toUpperCase(), { size: 11, bold: true, color: [70, 70, 200], gap: 3 });
+    rule(ctx, [70, 70, 200]);
+    return;
   }
+  if (template === "compact") {
+    writeText(ctx, text.toUpperCase(), { size: 10.5, bold: true, gap: 4 });
+    return;
+  }
+  writeText(ctx, text, { size: 12.5, bold: true, gap: 4 });
+  rule(ctx);
 }
 
 function bullet(ctx: Ctx, text: string) {
-  writeText(ctx, `• ${text}`, { size: 10, gap: 2 });
+  const size = 10;
+  ctx.doc.setFont("helvetica", "normal");
+  ctx.doc.setFontSize(size);
+  ctx.doc.setTextColor(20, 20, 20);
+
+  const dotX = ctx.page.margin + 4;
+  const textIndent = 14;
+  const maxWidth = ctx.page.width - ctx.page.margin * 2 - textIndent;
+  const lines = ctx.doc.splitTextToSize(text, maxWidth);
+  const lineH = size * LINE_HEIGHT;
+  newPageIfNeeded(ctx, lines.length * lineH + 3);
+
+  const baselineY = ctx.y + size;
+  ctx.doc.text("•", dotX, baselineY);
+  ctx.doc.text(lines, ctx.page.margin + textIndent, baselineY, { lineHeightFactor: LINE_HEIGHT });
+  ctx.y = baselineY + (lines.length - 1) * lineH + 3;
 }
 
 export function exportPdf(cv: CVData, template: Template, filename: string) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
-  const page = { width: doc.internal.pageSize.getWidth(), height: doc.internal.pageSize.getHeight(), margin: 48 };
+  doc.setLineHeightFactor(LINE_HEIGHT);
+
+  const page = {
+    width: doc.internal.pageSize.getWidth(),
+    height: doc.internal.pageSize.getHeight(),
+    margin: 50,
+  };
   const ctx: Ctx = { doc, y: page.margin, page };
 
+  const headerColor: [number, number, number] | undefined =
+    template === "modern" ? [40, 40, 120] : undefined;
+
   writeText(ctx, cv.name || "Your Name", {
-    size: 20,
+    size: 22,
     bold: true,
     align: template === "modern" ? "left" : "center",
+    color: headerColor,
     gap: 4,
   });
 
@@ -74,11 +118,12 @@ export function exportPdf(cv: CVData, template: Template, filename: string) {
     cv.contact.phone,
     cv.contact.location,
     ...(cv.contact.links ?? []),
-  ].filter(Boolean);
+  ].filter(Boolean) as string[];
   if (contactBits.length) {
-    writeText(ctx, contactBits.join("  |  "), {
-      size: 10,
+    writeText(ctx, contactBits.join(" | "), {
+      size: 9.5,
       align: template === "modern" ? "left" : "center",
+      color: [90, 90, 90],
       gap: 8,
     });
   }
@@ -90,27 +135,27 @@ export function exportPdf(cv: CVData, template: Template, filename: string) {
 
   if (cv.experience?.length) {
     sectionHeading(ctx, "Experience", template);
-    cv.experience.forEach((e) => {
+    cv.experience.forEach((e, i) => {
       writeText(ctx, `${e.title} — ${e.company}`, { size: 11, bold: true, gap: 2 });
       const sub = [e.location, [e.start, e.end].filter(Boolean).join(" – ")]
         .filter(Boolean)
-        .join("  |  ");
-      if (sub) writeText(ctx, sub, { size: 10, italic: true, gap: 3 });
+        .join(" | ");
+      if (sub) writeText(ctx, sub, { size: 9.5, italic: true, color: [110, 110, 110], gap: 4 });
       e.bullets?.forEach((b) => bullet(ctx, b));
-      ctx.y += 4;
+      if (i < cv.experience.length - 1) ctx.y += 4;
     });
   }
 
   if (cv.education?.length) {
     sectionHeading(ctx, "Education", template);
-    cv.education.forEach((ed) => {
+    cv.education.forEach((ed, i) => {
       writeText(ctx, `${ed.degree} — ${ed.school}`, { size: 11, bold: true, gap: 2 });
       const sub = [ed.location, [ed.start, ed.end].filter(Boolean).join(" – ")]
         .filter(Boolean)
-        .join("  |  ");
-      if (sub) writeText(ctx, sub, { size: 10, italic: true, gap: 3 });
+        .join(" | ");
+      if (sub) writeText(ctx, sub, { size: 9.5, italic: true, color: [110, 110, 110], gap: 4 });
       ed.details?.forEach((d) => bullet(ctx, d));
-      ctx.y += 4;
+      if (i < cv.education.length - 1) ctx.y += 4;
     });
   }
 
@@ -121,11 +166,11 @@ export function exportPdf(cv: CVData, template: Template, filename: string) {
 
   if (cv.projects?.length) {
     sectionHeading(ctx, "Projects", template);
-    cv.projects.forEach((p) => {
+    cv.projects.forEach((p, i) => {
       writeText(ctx, p.name, { size: 11, bold: true, gap: 2 });
-      if (p.description) writeText(ctx, p.description, { size: 10, gap: 3 });
+      if (p.description) writeText(ctx, p.description, { size: 10, gap: 4 });
       p.bullets?.forEach((b) => bullet(ctx, b));
-      ctx.y += 4;
+      if (i < cv.projects!.length - 1) ctx.y += 4;
     });
   }
 
@@ -139,10 +184,16 @@ export function exportPdf(cv: CVData, template: Template, filename: string) {
 
 export function exportTextPdf(text: string, filename: string) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
-  const page = { width: doc.internal.pageSize.getWidth(), height: doc.internal.pageSize.getHeight(), margin: 56 };
+  doc.setLineHeightFactor(LINE_HEIGHT);
+  const page = {
+    width: doc.internal.pageSize.getWidth(),
+    height: doc.internal.pageSize.getHeight(),
+    margin: 60,
+  };
   const ctx: Ctx = { doc, y: page.margin, page };
+
   text.split(/\n\n+/).forEach((para) => {
-    writeText(ctx, para.replace(/\n/g, " "), { size: 11, gap: 8 });
+    writeText(ctx, para.replace(/\n/g, " "), { size: 11, gap: 10 });
   });
   doc.save(filename);
 }
