@@ -1,10 +1,15 @@
+export type ContactLink = {
+  label: string;
+  url: string;
+};
+
 export type CVData = {
   name: string;
   contact: {
     email?: string;
     phone?: string;
     location?: string;
-    links?: string[];
+    links?: ContactLink[];
   };
   summary: string;
   experience: {

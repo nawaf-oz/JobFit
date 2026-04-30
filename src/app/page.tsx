@@ -6,6 +6,7 @@ import StepUpload from "@/components/StepUpload";
 import StepQuestions from "@/components/StepQuestions";
 import StepResult from "@/components/StepResult";
 import type {
+  ContactLink,
   CVData,
   Provider,
   ProviderConfig,
@@ -24,6 +25,29 @@ const STEPS: { id: Step; label: string }[] = [
   { id: "result", label: "Result" },
 ];
 
+function mergeLinks(parsed: ContactLink[] | undefined, custom: ContactLink[]): ContactLink[] {
+  const out: ContactLink[] = [];
+  const seen = new Set<string>();
+  const norm = (l: ContactLink) => `${l.label.toLowerCase()}|${l.url.toLowerCase()}`;
+  custom.forEach((l) => {
+    if (!l.url && !l.label) return;
+    const k = norm(l);
+    if (!seen.has(k)) {
+      seen.add(k);
+      out.push(l);
+    }
+  });
+  (parsed ?? []).forEach((l) => {
+    if (!l.url && !l.label) return;
+    const k = norm(l);
+    if (!seen.has(k)) {
+      seen.add(k);
+      out.push(l);
+    }
+  });
+  return out;
+}
+
 export default function Home() {
   const [config, setConfig] = useState<ProviderConfig>({
     provider: "anthropic",
@@ -34,6 +58,7 @@ export default function Home() {
   const [originalCv, setOriginalCv] = useState<CVData | null>(null);
   const [jobDescription, setJobDescription] = useState("");
   const [extraSkills, setExtraSkills] = useState("");
+  const [customLinks, setCustomLinks] = useState<ContactLink[]>([]);
 
   const [questions, setQuestions] = useState<ScreeningQuestion[]>([]);
   const [answers, setAnswers] = useState<ScreeningAnswer[]>([]);
@@ -55,6 +80,7 @@ export default function Home() {
     setOriginalCv(null);
     setJobDescription("");
     setExtraSkills("");
+    setCustomLinks([]);
     setQuestions([]);
     setAnswers([]);
     setTailoredCv(null);
@@ -106,9 +132,7 @@ export default function Home() {
               </div>
               {i < STEPS.length - 1 && (
                 <div
-                  className={`h-px w-6 ${
-                    done ? "bg-violet-400" : "bg-slate-300"
-                  } transition-colors`}
+                  className={`h-px w-6 ${done ? "bg-violet-400" : "bg-slate-300"} transition-colors`}
                 />
               )}
             </div>
@@ -124,8 +148,13 @@ export default function Home() {
             setJobDescription={setJobDescription}
             extraSkills={extraSkills}
             setExtraSkills={setExtraSkills}
+            customLinks={customLinks}
+            setCustomLinks={setCustomLinks}
             onParsed={(cv, qs) => {
-              setOriginalCv(cv);
+              setOriginalCv({
+                ...cv,
+                contact: { ...cv.contact, links: mergeLinks(cv.contact.links, customLinks) },
+              });
               setQuestions(qs);
               setAnswers(qs.map((q) => ({ id: q.id, answer: "" })));
               setStep("questions");
@@ -144,7 +173,10 @@ export default function Home() {
             setAnswers={setAnswers}
             onBack={() => setStep("upload")}
             onDone={(tailored, letter) => {
-              setTailoredCv(tailored);
+              setTailoredCv({
+                ...tailored,
+                contact: { ...tailored.contact, links: mergeLinks(tailored.contact.links, customLinks) },
+              });
               setCoverLetter(letter);
               setStep("result");
             }}

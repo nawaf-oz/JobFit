@@ -72,6 +72,51 @@ function sectionHeading(ctx: Ctx, text: string, template: Template) {
   rule(ctx);
 }
 
+function writeContactLine(
+  ctx: Ctx,
+  baseBits: string[],
+  links: { label: string; url: string }[],
+  template: "classic" | "modern" | "compact",
+) {
+  const size = 9.5;
+  const sep = "  |  ";
+  ctx.doc.setFont("helvetica", "normal");
+  ctx.doc.setFontSize(size);
+
+  const parts: { text: string; href?: string }[] = [];
+  baseBits.forEach((b, i) => {
+    parts.push({ text: b });
+    if (i < baseBits.length - 1 || links.length > 0) parts.push({ text: sep });
+  });
+  links.forEach((l, i) => {
+    parts.push({ text: l.label || l.url, href: l.url || undefined });
+    if (i < links.length - 1) parts.push({ text: sep });
+  });
+
+  const totalWidth = parts.reduce(
+    (sum, p) => sum + ctx.doc.getStringUnitWidth(p.text) * size,
+    0,
+  );
+  const baselineY = ctx.y + size;
+  let x =
+    template === "modern"
+      ? ctx.page.margin
+      : (ctx.page.width - totalWidth) / 2;
+
+  parts.forEach((p) => {
+    if (p.href) {
+      ctx.doc.setTextColor(80, 60, 180);
+      ctx.doc.textWithLink(p.text, x, baselineY, { url: p.href });
+    } else {
+      ctx.doc.setTextColor(90, 90, 90);
+      ctx.doc.text(p.text, x, baselineY);
+    }
+    x += ctx.doc.getStringUnitWidth(p.text) * size;
+  });
+  ctx.doc.setTextColor(20, 20, 20);
+  ctx.y = baselineY + 8;
+}
+
 function bullet(ctx: Ctx, text: string) {
   const size = 10;
   ctx.doc.setFont("helvetica", "normal");
@@ -113,19 +158,10 @@ export function exportPdf(cv: CVData, template: Template, filename: string) {
     gap: 4,
   });
 
-  const contactBits = [
-    cv.contact.email,
-    cv.contact.phone,
-    cv.contact.location,
-    ...(cv.contact.links ?? []),
-  ].filter(Boolean) as string[];
-  if (contactBits.length) {
-    writeText(ctx, contactBits.join(" | "), {
-      size: 9.5,
-      align: template === "modern" ? "left" : "center",
-      color: [90, 90, 90],
-      gap: 8,
-    });
+  const baseBits = [cv.contact.email, cv.contact.phone, cv.contact.location].filter(Boolean) as string[];
+  const links = cv.contact.links ?? [];
+  if (baseBits.length || links.length) {
+    writeContactLine(ctx, baseBits, links, template);
   }
 
   if (cv.summary) {
@@ -188,12 +224,24 @@ export function exportTextPdf(text: string, filename: string) {
   const page = {
     width: doc.internal.pageSize.getWidth(),
     height: doc.internal.pageSize.getHeight(),
-    margin: 60,
+    margin: 64,
   };
   const ctx: Ctx = { doc, y: page.margin, page };
 
-  text.split(/\n\n+/).forEach((para) => {
-    writeText(ctx, para.replace(/\n/g, " "), { size: 11, gap: 10 });
+  text.split(/\n\n+/).forEach((block) => {
+    block.split("\n").forEach((line) => {
+      const trimmed = line.trim();
+      const isHeading =
+        /^(re:|dear |sincerely,|best regards,|kind regards,|yours sincerely,|yours faithfully,)/i.test(
+          trimmed,
+        );
+      writeText(ctx, line || " ", {
+        size: 11,
+        bold: isHeading,
+        gap: 2,
+      });
+    });
+    ctx.y += 8;
   });
   doc.save(filename);
 }

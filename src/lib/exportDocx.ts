@@ -3,6 +3,7 @@
 import {
   AlignmentType,
   Document,
+  ExternalHyperlink,
   HeadingLevel,
   Packer,
   Paragraph,
@@ -57,18 +58,41 @@ export async function exportDocx(cv: CVData, template: Template, filename: strin
     }),
   );
 
-  const contactBits = [
-    cv.contact.email,
-    cv.contact.phone,
-    cv.contact.location,
-    ...(cv.contact.links ?? []),
-  ].filter(Boolean);
-  if (contactBits.length) {
+  const baseBits = [cv.contact.email, cv.contact.phone, cv.contact.location].filter(Boolean) as string[];
+  const links = cv.contact.links ?? [];
+  if (baseBits.length || links.length) {
+    const runs: (TextRun | ExternalHyperlink)[] = [];
+    const sep = "  |  ";
+    baseBits.forEach((b, i) => {
+      runs.push(new TextRun(b));
+      if (i < baseBits.length - 1 || links.length > 0) runs.push(new TextRun(sep));
+    });
+    links.forEach((l, i) => {
+      const text = l.label || l.url;
+      if (l.url) {
+        runs.push(
+          new ExternalHyperlink({
+            link: l.url,
+            children: [
+              new TextRun({
+                text,
+                style: "Hyperlink",
+                color: "5030B0",
+                underline: {},
+              }),
+            ],
+          }),
+        );
+      } else {
+        runs.push(new TextRun(text));
+      }
+      if (i < links.length - 1) runs.push(new TextRun(sep));
+    });
     children.push(
       new Paragraph({
         alignment: template === "modern" ? AlignmentType.LEFT : AlignmentType.CENTER,
         spacing: { after: 120 },
-        children: [new TextRun(contactBits.join(" | "))],
+        children: runs,
       }),
     );
   }
@@ -137,20 +161,38 @@ export async function exportDocx(cv: CVData, template: Template, filename: strin
 }
 
 export async function exportTextDocx(text: string, filename: string) {
-  const paragraphs = text.split(/\n\n+/).map(
-    (p) =>
-      new Paragraph({
-        spacing: { after: 120 },
-        children: [new TextRun(p.replace(/\n/g, " "))],
-      }),
-  );
+  const blocks = text.split(/\n\n+/).map((block) => block.split("\n"));
+
+  const children: Paragraph[] = [];
+  blocks.forEach((blockLines, blockIdx) => {
+    blockLines.forEach((rawLine) => {
+      const trimmed = rawLine.trim();
+      const isHeading =
+        /^(re:|dear |sincerely,|best regards,|kind regards,|yours sincerely,|yours faithfully,)/i.test(
+          trimmed,
+        );
+      children.push(
+        new Paragraph({
+          spacing: { after: 60 },
+          children: [
+            new TextRun({
+              text: rawLine,
+              bold: isHeading || (blockIdx === 0 && rawLine === blockLines[0]),
+            }),
+          ],
+        }),
+      );
+    });
+    children.push(new Paragraph({ spacing: { after: 120 }, children: [new TextRun("")] }));
+  });
+
   const doc = new Document({
     sections: [
       {
         properties: {
-          page: { margin: { top: 720, bottom: 720, left: 720, right: 720 } },
+          page: { margin: { top: 1080, bottom: 1080, left: 1080, right: 1080 } },
         },
-        children: paragraphs,
+        children,
       },
     ],
   });

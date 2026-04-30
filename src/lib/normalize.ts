@@ -1,4 +1,43 @@
-import type { CVData } from "./types";
+import type { ContactLink, CVData } from "./types";
+
+function normalizeLinks(raw: unknown): ContactLink[] {
+  if (!raw) return [];
+  const arr = Array.isArray(raw) ? raw : [raw];
+  return arr
+    .map((item): ContactLink | null => {
+      if (typeof item === "string") {
+        const url = item.trim();
+        if (!url) return null;
+        return { label: deriveLabel(url), url };
+      }
+      if (typeof item === "object" && item !== null) {
+        const o = item as Record<string, unknown>;
+        const url = typeof o.url === "string" ? o.url.trim() : typeof o.href === "string" ? o.href.trim() : "";
+        const label = typeof o.label === "string" && o.label.trim()
+          ? o.label.trim()
+          : typeof o.name === "string" && o.name.trim()
+          ? o.name.trim()
+          : url
+          ? deriveLabel(url)
+          : "";
+        if (!url && !label) return null;
+        return { label: label || deriveLabel(url), url };
+      }
+      return null;
+    })
+    .filter((x): x is ContactLink => x !== null);
+}
+
+function deriveLabel(url: string): string {
+  const u = url.toLowerCase();
+  if (u.includes("github.com")) return "GitHub";
+  if (u.includes("linkedin.com")) return "LinkedIn";
+  if (u.includes("twitter.com") || u.includes("x.com")) return "Twitter";
+  if (u.includes("stackoverflow.com")) return "Stack Overflow";
+  if (u.includes("dribbble.com")) return "Dribbble";
+  if (u.includes("behance.net")) return "Behance";
+  return "Link";
+}
 
 function toStr(v: unknown): string {
   if (typeof v === "string") return v;
@@ -44,7 +83,7 @@ export function normalizeCV(cv: CVData): CVData {
       email: cv.contact?.email ? toStr(cv.contact.email) : undefined,
       phone: cv.contact?.phone ? toStr(cv.contact.phone) : undefined,
       location: cv.contact?.location ? toStr(cv.contact.location) : undefined,
-      links: Array.isArray(cv.contact?.links) ? cv.contact!.links!.map(toStr).filter(Boolean) : [],
+      links: normalizeLinks(cv.contact?.links),
     },
     summary: toStr(cv.summary),
     skills: flattenSkills(cv.skills as unknown),

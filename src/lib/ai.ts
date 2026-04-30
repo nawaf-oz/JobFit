@@ -102,7 +102,7 @@ export async function parseCV(cfg: ProviderConfig, rawText: string): Promise<CVD
 
 type CVData = {
   name: string;
-  contact: { email?: string; phone?: string; location?: string; links?: string[] };
+  contact: { email?: string; phone?: string; location?: string; links?: { label: string; url: string }[] };
   summary: string;
   experience: { title: string; company: string; location?: string; start: string; end: string; bullets: string[] }[];
   education: { degree: string; school: string; location?: string; start: string; end: string; details?: string[] }[];
@@ -113,7 +113,8 @@ type CVData = {
 
 Rules:
 - skills MUST be an array of plain strings, e.g. ["JavaScript", "React", "Node.js"]. Do NOT group, do NOT use objects.
-- bullets, details, certifications, links MUST also be plain string arrays.
+- contact.links MUST be an array of { label, url } objects, e.g. [{ "label": "GitHub", "url": "https://github.com/foo" }]. If a URL is missing but a label is mentioned, set url to "".
+- bullets, details, certifications MUST be plain string arrays.
 - Use empty strings or empty arrays when info is missing.
 - Preserve original wording in bullets.
 
@@ -231,17 +232,50 @@ export async function generateCoverLetter(
     })
     .join("\n\n");
 
-  const system =
-    "You write concise, professional cover letters. Plain text only, no markdown. 3 to 4 short paragraphs. Do not invent facts.";
-  const user = `Write a cover letter for this candidate applying to the role below. Reference 2-3 of the most relevant experiences. Keep it under 350 words.
+  const system = `You write cover letters that sound like a sharp, motivated human wrote them. They have a point of view, real specifics, and energy. They are NOT corporate filler.
 
-JOB DESCRIPTION:
+EXACT LAYOUT (plain text, no markdown, no emojis):
+
+<Candidate Name>
+<email> | <phone> | <location>
+
+Dear <Hiring Manager at Company> (use real company name from JD if available, otherwise "Hiring Manager"),
+
+<HOOK PARAGRAPH — 2-3 sentences. Open with a SPECIFIC moment from the candidate's CV: a project they built, a problem they solved, or a concrete capability that directly answers something the JD asks for. Show, don't tell. Forbidden openers: "I am writing to apply for...", "I am excited to...", "I am pleased to submit...", "Please find attached...". These are dead.>
+
+<EVIDENCE PARAGRAPH — 3-5 sentences. Pick the 2 most relevant items from the CV (real ones, not invented) and explain what they did and why it matters for THIS role. Name actual tools, frameworks, and outcomes from the CV. Each sentence should add new information.>
+
+<FIT PARAGRAPH — 2-4 sentences. Why this company/role specifically. Pull a phrase, product, or value from the JD and show genuine connection — using something the candidate said in the Q&A or has on their CV. Avoid clichés like "your innovative culture" — be specific or skip it.>
+
+<CLOSING — 1-2 sentences. Confident, forward-looking, low-stakes invitation to talk. Not "thank you for considering." Something like "Happy to walk through any of this in more detail" or "Would welcome a chance to discuss how I'd contribute to <specific thing>."
+
+Sincerely,
+<Candidate Name>
+
+VOICE GUIDE:
+- Confident, not arrogant. Specific, not generic. Concise, not curt.
+- Use "I" comfortably. Vary sentence length.
+- Concrete verbs: built, shipped, debugged, scaled, designed, led — not "leveraged", "utilized", "facilitated".
+- Cut adjectives that don't carry weight ("highly motivated", "passionate", "results-driven", "dynamic" — banned).
+- No corporate buzzwords ("synergy", "ecosystem", "best-in-class", "top-tier").
+- It's a letter from one person to another, not a press release.
+
+HARD RULES:
+- 280-360 words total. No padding.
+- Do NOT invent employers, projects, tools, dates, metrics, or schools. Only what's in the CV, extra skills, or Q&A.
+- DO NOT include a date line.
+- DO NOT use "Re:" or any subject line.
+- No bullet points, no headers, no markdown.`;
+
+  const user = `JOB DESCRIPTION:
 ${jobDescription}
 
 SCREENING Q&A:
 ${qa || "(none)"}
 
 CANDIDATE CV (JSON):
-${JSON.stringify(cv)}`;
+${JSON.stringify(cv)}
+
+Write the cover letter using the structure above. Output only the letter — no preamble, no explanation.`;
   return (await ask(cfg, system, user)).trim();
 }

@@ -105,8 +105,15 @@ export default function StepResult({ cv, coverLetter, template, setTemplate, onR
         </>
       ) : (
         <>
-          <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-800 whitespace-pre-wrap leading-relaxed max-h-[520px] overflow-auto">
-            {coverLetter}
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="px-10 py-12 max-h-[640px] overflow-auto">
+              <pre
+                className="whitespace-pre-wrap text-[13.5px] leading-[1.7] text-slate-900"
+                style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
+              >
+                {coverLetter}
+              </pre>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <button

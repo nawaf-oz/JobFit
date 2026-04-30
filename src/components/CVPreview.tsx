@@ -25,12 +25,8 @@ export default function CVPreview({ cv, template }: Props) {
   const bulletGap = isCompact ? "mt-0.5" : "mt-1";
   const bodyText = isCompact ? "text-[12px] leading-snug" : "text-[12.5px] leading-relaxed";
 
-  const contactBits = [
-    cv.contact.email,
-    cv.contact.phone,
-    cv.contact.location,
-    ...(cv.contact.links ?? []),
-  ].filter(Boolean) as string[];
+  const baseBits = [cv.contact.email, cv.contact.phone, cv.contact.location].filter(Boolean) as string[];
+  const linkItems = cv.contact.links ?? [];
 
   return (
     <div
@@ -45,9 +41,27 @@ export default function CVPreview({ cv, template }: Props) {
           <h3 className={`${nameSize} font-extrabold tracking-tight ${isModern ? "text-violet-800" : "text-slate-900"}`}>
             {cv.name || "Your Name"}
           </h3>
-          {contactBits.length > 0 && (
+          {(baseBits.length > 0 || linkItems.length > 0) && (
             <p className="mt-1 text-[11px] text-slate-500">
-              {contactBits.join(SEP)}
+              {baseBits.join(SEP)}
+              {baseBits.length > 0 && linkItems.length > 0 && SEP}
+              {linkItems.map((l, i) => (
+                <span key={i}>
+                  {i > 0 && SEP}
+                  {l.url ? (
+                    <a
+                      href={l.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-violet-700 hover:underline"
+                    >
+                      {l.label || l.url}
+                    </a>
+                  ) : (
+                    <span>{l.label}</span>
+                  )}
+                </span>
+              ))}
             </p>
           )}
         </div>

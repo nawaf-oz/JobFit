@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { extractText } from "@/lib/parseFile";
 import { generateQuestions, parseCV } from "@/lib/ai";
-import type { CVData, ProviderConfig, ScreeningQuestion } from "@/lib/types";
+import type {
+  ContactLink,
+  CVData,
+  ProviderConfig,
+  ScreeningQuestion,
+} from "@/lib/types";
 
 type Props = {
   config: ProviderConfig;
@@ -11,8 +16,12 @@ type Props = {
   setJobDescription: (v: string) => void;
   extraSkills: string;
   setExtraSkills: (v: string) => void;
+  customLinks: ContactLink[];
+  setCustomLinks: (l: ContactLink[]) => void;
   onParsed: (cv: CVData, qs: ScreeningQuestion[]) => void;
 };
+
+const SUGGESTED_LABELS = ["GitHub", "LinkedIn", "Portfolio", "Twitter", "Behance"];
 
 export default function StepUpload({
   config,
@@ -20,6 +29,8 @@ export default function StepUpload({
   setJobDescription,
   extraSkills,
   setExtraSkills,
+  customLinks,
+  setCustomLinks,
   onParsed,
 }: Props) {
   const [file, setFile] = useState<File | null>(null);
@@ -27,6 +38,14 @@ export default function StepUpload({
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [drag, setDrag] = useState(false);
+
+  const updateLink = (i: number, patch: Partial<ContactLink>) => {
+    setCustomLinks(customLinks.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
+  };
+  const addLink = (label = "") =>
+    setCustomLinks([...customLinks, { label, url: "" }]);
+  const removeLink = (i: number) =>
+    setCustomLinks(customLinks.filter((_, idx) => idx !== i));
 
   const submit = async () => {
     setError("");
@@ -125,6 +144,69 @@ export default function StepUpload({
           placeholder="e.g. fluent Spanish, AWS Lambda, side project shipping..."
           className="field"
         />
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm font-semibold text-slate-800">
+            Links for communication{" "}
+            <span className="font-normal text-slate-500">(optional)</span>
+          </label>
+          <button
+            type="button"
+            onClick={() => addLink()}
+            className="btn-ghost"
+          >
+            + Add link
+          </button>
+        </div>
+        <p className="text-xs text-slate-500 mb-2">
+          Add the label you want shown on your CV (e.g. <code className="rounded bg-slate-100 px-1">GitHub</code>) and the URL it should link to. These become clickable in the exported CV.
+        </p>
+
+        {customLinks.length === 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {SUGGESTED_LABELS.map((l) => (
+              <button
+                key={l}
+                type="button"
+                onClick={() => addLink(l)}
+                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 transition-colors"
+              >
+                + {l}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {customLinks.map((link, i) => (
+            <div key={i} className="flex gap-2 items-stretch">
+              <input
+                type="text"
+                placeholder="Label (e.g. GitHub)"
+                value={link.label}
+                onChange={(e) => updateLink(i, { label: e.target.value })}
+                className="field w-40"
+              />
+              <input
+                type="url"
+                placeholder="https://..."
+                value={link.url}
+                onChange={(e) => updateLink(i, { url: e.target.value })}
+                className="field flex-1"
+              />
+              <button
+                type="button"
+                onClick={() => removeLink(i)}
+                className="rounded-xl px-3 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                aria-label="Remove link"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
       {error && (
