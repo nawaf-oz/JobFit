@@ -6,7 +6,7 @@ JobFit takes your existing CV and a job posting, asks a few quick screening ques
 
 ---
 
-## ✨ What it does
+##  What it does
 
 - **Reads your CV** (PDF, DOCX, TXT, MD) directly in the browser — no upload server.
 - **Asks smart questions** — multiple-choice, mixing CV gaps and per-project relevance ("did this project use the JD's tech?").
@@ -20,7 +20,7 @@ JobFit takes your existing CV and a job posting, asks a few quick screening ques
 
 ---
 
-## 🚀 Run it
+##  Run it
 
 You need [Node.js](https://nodejs.org) 18+ and npm.
 
@@ -42,7 +42,7 @@ npm start
 
 ---
 
-## 🔑 Get an API key
+##  Get an API key
 
 You bring your own. Pick one provider:
 
@@ -56,7 +56,7 @@ Default models are set in [`src/lib/ai.ts`](src/lib/ai.ts) — change them if yo
 
 ---
 
-## 📋 How to use
+##  How to use
 
 1. **Pick your provider** at the top of the page (Claude, ChatGPT, or Gemini).
 2. **Paste your API key** and click **Save**. It's stored only in your browser's `localStorage`.
@@ -71,7 +71,7 @@ Default models are set in [`src/lib/ai.ts`](src/lib/ai.ts) — change them if yo
 
 ---
 
-## 🧠 How it works
+##  How it works
 
 1. Your CV is parsed to text in the browser using `pdfjs-dist` (PDF) or `mammoth` (DOCX).
 2. The selected model extracts it into structured JSON.
@@ -84,7 +84,7 @@ The model is instructed not to invent employers, titles, dates, degrees, or proj
 
 ---
 
-## 🔒 Privacy
+##  Privacy
 
 - Your CV text is sent **only** to the provider you pick, from your browser, using your own key.
 - API keys are stored in `localStorage` on your device. The "Clear" button in the UI removes them.
@@ -92,7 +92,7 @@ The model is instructed not to invent employers, titles, dates, degrees, or proj
 
 ---
 
-## 🧱 Tech stack
+##  Tech stack
 
 - [Next.js 14](https://nextjs.org/) (App Router) + React + TypeScript
 - [Tailwind CSS](https://tailwindcss.com/) for styling
@@ -102,33 +102,9 @@ The model is instructed not to invent employers, titles, dates, degrees, or proj
 
 ---
 
-## 📁 Project structure
 
-```
-src/
-├── app/
-│   ├── layout.tsx        # Root layout, metadata
-│   ├── page.tsx          # Multi-step flow (Upload → Questions → Result)
-│   ├── globals.css       # Tailwind + theme
-│   └── icon.svg          # Favicon
-├── components/
-│   ├── ApiKeyBox.tsx     # Provider picker + key input
-│   ├── StepUpload.tsx    # File upload, JD, extra skills, links
-│   ├── StepQuestions.tsx # Multiple-choice screening
-│   ├── StepResult.tsx    # Templates, preview, downloads
-│   └── CVPreview.tsx     # Live styled CV preview
-└── lib/
-    ├── types.ts          # Shared TypeScript types
-    ├── ai.ts             # Provider dispatch + prompts
-    ├── parseFile.ts      # PDF / DOCX / TXT extraction
-    ├── normalize.ts      # Sanitize AI output
-    ├── exportPdf.ts      # PDF generation
-    └── exportDocx.ts     # DOCX generation
-```
 
----
-
-## 🤝 Contributing
+##  Contributing
 
 PRs welcome. Open an issue to discuss anything substantial first.
 
